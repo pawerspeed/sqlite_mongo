@@ -1,0 +1,109 @@
+from sqlalchemy import Column
+from sqlalchemy import create_engine
+from sqlalchemy import Integer
+from sqlalchemy import String
+from sqlalchemy import inspect
+from sqlalchemy import ForeignKey
+from sqlalchemy import select
+from sqlalchemy import func
+
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Session
+
+
+
+# Criando as tabelas com a herança da classe Base
+
+Base = declarative_base()
+engine = create_engine("sqlite:///:memory") #("sqlite://") ele memoriza tudo
+
+
+class Cliente(Base):
+    """
+        Cria a tabela Cliente com o sqlalchemy
+    """
+    __tablename__ = "cliente"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String)
+    cpf = Column(String(9))
+    endereco = relationship("Conta", back_populates="cliente")
+
+
+class Conta(Base):
+    """
+        Cria a tabela endereço com o sqlalchemy
+    """
+    __tablename__ = "conta"
+    id = Column(Integer, primary_key=True)
+    tipo = Column(String, nullable=True)
+    agencia = Column(String)
+    num = Column(Integer, nullable=True)
+    saldo = Column(Integer, nullable=True)
+    id_cliente = Column(Integer, ForeignKey("cliente.id"), nullable=False)
+
+    cliente = relationship("Cliente", back_populates="endereco")
+
+
+def cria_tabelas():
+    """
+        Cria as tabelas no sqlite
+
+    """
+
+Base.metadata.create_all(engine)
+
+# cria_tabelas()
+
+# insp = inspect(engine)
+# print(insp.get_table_names())
+    #investiga o esquema de db
+inspetor_engine = inspect(engine)
+print(inspetor_engine.has_table("user_account"))
+print(inspetor_engine.get_table_names())
+print(inspetor_engine.default_schema_name)
+
+# Inserindo alguns dados
+
+with Session(engine) as session:
+    carol = Cliente(
+        nome="Carol Bastos",
+        cpf="123456",
+        endereco = [Conta(agencia='0001')]
+    )
+    olivia = Cliente(
+        nome="Olívia Bastos",
+        cpf="654321",
+        endereco=[Conta(agencia='0001')]
+    )
+    marcos = Cliente(
+        nome="Marcos Bastos",
+        cpf="456123",
+        endereco=[Conta(agencia='0001')]
+    )
+
+session.add_all([carol, olivia, marcos])
+
+session.commit()
+
+# print(select(Cliente))
+
+stmt = select(Cliente)
+
+connection = engine.connect()
+results = connection.execute(stmt).fetchall()
+#print("\tExecutando stm a partir de uma conection")
+for result in results:
+    print(result)
+
+stmt_count = select(func.count('*')).select_from(Cliente)
+#print("\ttotal de instancia em Cliente")
+results = connection.execute(stmt_count).fetchall()
+for result in results:
+    print(result)
+
+stmt_where = select(Cliente).where(Conta.id.in_([2]))
+results = connection.execute(stmt_where).fetchall()
+for result in results:
+    print(result)
+
